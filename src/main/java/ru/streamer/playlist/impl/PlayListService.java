@@ -44,4 +44,9 @@ public class PlayListService implements PlayListInitialization {
             throw new ReadFileSystemException(e);
         }
     }
+
+    @Override
+    public Map<String, String> getPlayList() {
+        return playList;
+    }
 }
