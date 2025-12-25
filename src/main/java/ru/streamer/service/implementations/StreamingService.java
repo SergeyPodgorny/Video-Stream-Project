@@ -10,6 +10,9 @@ import reactor.core.publisher.Mono;
 import ru.streamer.playlist.PlayListInitialization;
 import ru.streamer.service.VideoProvider;
 
+import java.util.Objects;
+import java.util.Optional;
+
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -24,9 +27,13 @@ public class StreamingService implements VideoProvider {
 
     public Mono<Resource> getVideo(String title){
         log.info(String.format(titleFormat, title));
-        var currentRoute = String.format(routeFormat,playList.getPlayList().get(title));
-        log.info(String.format(routeLogFormat,currentRoute));
-        return Mono.fromSupplier(()-> resourceLoader.getResource(currentRoute));
+        return Optional.ofNullable(playList.getPlayList().get(title))
+                .map(filePath -> {
+                    String route = Objects.requireNonNull(String.format(routeFormat, filePath));
+                    log.info(String.format(routeLogFormat, route));
+                    return Mono.fromSupplier(() -> resourceLoader.getResource(route));
+                })
+                .orElseGet(() -> Mono.error(new IllegalArgumentException("Video not found: " + title)));
     }
 
 }
