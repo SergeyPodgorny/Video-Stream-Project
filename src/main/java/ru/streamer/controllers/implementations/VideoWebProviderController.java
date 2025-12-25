@@ -2,8 +2,8 @@ package ru.streamer.controllers.implementations;
 
 
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -14,15 +14,12 @@ import ru.streamer.controllers.VideoWebProvider;
 import ru.streamer.service.VideoProvider;
 
 @RestController
+@RequiredArgsConstructor
+@Slf4j
 public class VideoWebProviderController implements VideoWebProvider {
 
 
     private final VideoProvider videoService;
-
-    @Autowired
-    public VideoWebProviderController(VideoProvider videoService) {
-        this.videoService = videoService;
-    }
 
 
     @GetMapping(value = "video/{title}", produces = "video/mp4")

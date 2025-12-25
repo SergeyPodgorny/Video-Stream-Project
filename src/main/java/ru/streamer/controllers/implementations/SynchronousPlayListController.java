@@ -1,6 +1,6 @@
 package ru.streamer.controllers.implementations;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import ru.streamer.controllers.PlayListProvider;
@@ -10,15 +10,11 @@ import java.util.Map;
 
 
 @RestController
+@RequiredArgsConstructor
 public class SynchronousPlayListController  implements PlayListProvider {
 
 
     private final PlayListInitialization service;
-
-    @Autowired
-    public SynchronousPlayListController(PlayListInitialization service) {
-        this.service = service;
-    }
 
 
     @GetMapping(value= "/playlist", produces="application/json")

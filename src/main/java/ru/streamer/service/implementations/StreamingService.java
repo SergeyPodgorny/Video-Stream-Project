@@ -1,8 +1,8 @@
 package ru.streamer.service.implementations;
 
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
@@ -12,6 +12,7 @@ import ru.streamer.service.VideoProvider;
 
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class StreamingService implements VideoProvider {
 
     private final PlayListInitialization playList;
@@ -19,13 +20,6 @@ public class StreamingService implements VideoProvider {
     private final String routeFormat ="file:/%s";
     private final String titleFormat = "Played file title /%s";
     private final String routeLogFormat = "Played file route /%s";
-
-
-    @Autowired
-    public StreamingService(PlayListInitialization playList, ResourceLoader resourceLoader) {
-        this.playList = playList;
-        this.resourceLoader = resourceLoader;
-    }
 
 
     public Mono<Resource> getVideo(String title){
