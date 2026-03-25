@@ -1,18 +1,20 @@
 package ru.streamer.aspects;
 
-import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.springframework.stereotype.Component;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.time.Instant;
 
 @Component
 @Aspect
-@Slf4j
 public class BenchmarkedAspect {
+
+    private static final Logger log = LoggerFactory.getLogger(BenchmarkedAspect.class);
 
     @Around("@annotation(ru.streamer.annotations.Benchmarked)")
     public Object performTimeMeasure(ProceedingJoinPoint joinPoint) throws Throwable {

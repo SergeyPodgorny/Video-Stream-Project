@@ -1,7 +1,7 @@
 package ru.streamer.controllers.implementations;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,11 +13,14 @@ import ru.streamer.controllers.VideoWebProvider;
 import ru.streamer.service.VideoProvider;
 
 @RestController
-@RequiredArgsConstructor
-@Slf4j
 public class VideoWebProviderController implements VideoWebProvider {
 
+    private static final Logger log = LoggerFactory.getLogger(VideoWebProviderController.class);
     private final VideoProvider videoService;
+
+    public VideoWebProviderController(VideoProvider videoService) {
+        this.videoService = videoService;
+    }
 
     @GetMapping(value = "video/{title}", produces = "video/mp4")
     public Mono<ResponseEntity<Resource>> streamVideo(

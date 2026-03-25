@@ -1,6 +1,7 @@
 package ru.streamer.controllers.implementations;
 
-import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import ru.streamer.controllers.PlayListProvider;
@@ -13,19 +14,31 @@ import java.util.stream.Collectors;
 
 
 @RestController
-@RequiredArgsConstructor
 public class SynchronousPlayListController implements PlayListProvider {
 
+    private static final Logger log = LoggerFactory.getLogger(SynchronousPlayListController.class);
     private final PlayListInitialization service;
+
+    public SynchronousPlayListController(PlayListInitialization service) {
+        this.service = service;
+    }
 
     @GetMapping(value = "/playlist", produces = "application/json")
     @Override
     public List<VideoInfo> getPlayList() {
         return service.getPlayList().keySet().stream()
-                .map(title -> VideoInfo.builder()
-                        .title(title)
-                        .url("/streamer_page.html?video=" + title)
-                        .build())
+                .map(title -> {
+                    String extension = title.substring(title.lastIndexOf('.') + 1).toLowerCase();
+                    boolean needsTranscoding = service instanceof ru.streamer.playlist.impl.PlayListService 
+                        ? ((ru.streamer.playlist.impl.PlayListService) service).requiresTranscoding(title)
+                        : false;
+                    return VideoInfo.builder()
+                            .title(title)
+                            .url("/streamer_page.html?video=" + title)
+                            .format(extension.toUpperCase())
+                            .requiresTranscoding(needsTranscoding)
+                            .build();
+                })
                 .collect(Collectors.toList());
     }
 
