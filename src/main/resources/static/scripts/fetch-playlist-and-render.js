@@ -6,44 +6,51 @@ async function getPlaylist() {
           method: 'GET',
         },
       );
-  
+
       if (!response.ok) {
         throw new Error(`Error! status: ${response.status}`);
       }
-  
+
       const data = await response.json();
       return data;
     } catch (error) {
-      console.log(error);
+      console.error('Failed to fetch playlist:', error);
+      throw error;
     }
   }
-  
-  getPlaylist().then(data => {
-  
-  
-    let table = '<table style="border-collapse: collapse;">';
-  
-  table += `
-    <thead>
-      <tr>
-        <th>Доступные файлы</th>
-      </tr>
-    </thead>
-  
-    <tbody>`;
-  
-  Object.keys(data).forEach(data => {
-    table += `
-      <tr>
-        <td><a href="streamer_page.html?video=${data}">${data}</a></td>
-      </tr>`;
-  });
-  
-  table += `
-    </tbody>
-  </table>`;
-  
-    const container = document.getElementById('container');
-    container.innerHTML = table;
-      
-  });
+
+  async function renderPlaylist() {
+    try {
+      const data = await getPlaylist();
+
+      let table = '<table style="border-collapse: collapse;">';
+
+      table += `
+        <thead>
+          <tr>
+            <th>Доступные файлы</th>
+          </tr>
+        </thead>
+
+        <tbody>`;
+
+      data.forEach(video => {
+        table += `
+          <tr>
+            <td><a href="${video.url}">${video.title}</a></td>
+          </tr>`;
+      });
+
+      table += `
+        </tbody>
+      </table>`;
+
+      const container = document.getElementById('container');
+      container.innerHTML = table;
+    } catch (error) {
+      const container = document.getElementById('container');
+      container.innerHTML = '<p style="color: red;">Ошибка загрузки плейлиста</p>';
+    }
+  }
+
+  renderPlaylist();

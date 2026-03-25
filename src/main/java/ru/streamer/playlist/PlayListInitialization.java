@@ -6,6 +6,6 @@ public interface PlayListInitialization {
 
     void init();
 
-    Map<String,String> getPlayList();
+    Map<String, String> getPlayList();
 
 }

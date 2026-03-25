@@ -1,10 +1,9 @@
 package ru.streamer.controllers.implementations;
 
-
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -18,13 +17,14 @@ import ru.streamer.service.VideoProvider;
 @Slf4j
 public class VideoWebProviderController implements VideoWebProvider {
 
-
     private final VideoProvider videoService;
 
-
     @GetMapping(value = "video/{title}", produces = "video/mp4")
-    public Mono<Resource> streamVideo(@PathVariable String title, @RequestHeader("Range") String range) {
-        return videoService.getVideo(title);
+    public Mono<ResponseEntity<Resource>> streamVideo(
+            @PathVariable String title,
+            @RequestHeader(value = "Range", required = false) String range) {
+        log.info("Video request: title={}, range={}", title, range);
+        return videoService.getVideo(title, range);
     }
 
 }
