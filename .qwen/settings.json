@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "Bash(mvn *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(taskkill *)",
+      "Bash(java *)",
+      "Bash(findstr *)",
+      "Bash(curl *)"
     ]
-  }
+  },
+  "$version": 3
 }

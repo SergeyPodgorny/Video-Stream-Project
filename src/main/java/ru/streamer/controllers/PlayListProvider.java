@@ -1,11 +1,11 @@
 package ru.streamer.controllers;
 
-import ru.streamer.dto.VideoInfo;
+import ru.streamer.dto.VideoFolder;
 
 import java.util.List;
 
 public interface PlayListProvider {
 
-    List<VideoInfo> getPlayList();
+    List<VideoFolder> getPlayList();
 
 }

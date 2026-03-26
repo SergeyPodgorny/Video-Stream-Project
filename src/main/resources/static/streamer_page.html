@@ -6,7 +6,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
     <title>Home movie theatre</title>
+    <link rel="icon" href="logo.svg" type="image/svg+xml">
     <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .logo {
+            width: 48px;
+            height: 48px;
+        }
         .video-info {
             margin-bottom: 15px;
             padding: 10px;
@@ -24,14 +41,16 @@
 </head>
 <body>
 
-    <a href="/index.html">Назад</a>
-    <br>
-    
+    <div class="header">
+        <img src="logo.svg" alt="Логотип" class="logo">
+        <a href="/index.html">Назад</a>
+    </div>
+
     <div id="video-info" class="video-info"></div>
     <div id="transcoding-warning" class="transcoding-warning" style="display: none;">
         ⚠️ Видео требует транскодировки. Начало воспроизведения может занять несколько секунд.
     </div>
-    
+
     <div id="video-container"></div>
 
   <script src="/scripts/render-video-player.js"></script>
