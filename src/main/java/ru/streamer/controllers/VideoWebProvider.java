@@ -6,6 +6,6 @@ import reactor.core.publisher.Mono;
 
 public interface VideoWebProvider {
 
-    Mono<ResponseEntity<Resource>> streamVideo(String title, String range);
+    Mono<ResponseEntity<Resource>> getVideo(String range);
 
 }

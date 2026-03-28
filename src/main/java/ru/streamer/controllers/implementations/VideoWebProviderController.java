@@ -22,10 +22,19 @@ public class VideoWebProviderController implements VideoWebProvider {
         this.videoService = videoService;
     }
 
-    @GetMapping(value = "video/{title}", produces = "video/mp4")
-    public Mono<ResponseEntity<Resource>> streamVideo(
-            @PathVariable String title,
-            @RequestHeader(value = "Range", required = false) String range) {
+    @Override
+    @GetMapping(value = "video/**", produces = "video/mp4")
+    public Mono<ResponseEntity<Resource>> getVideo(String range) {
+        // Извлекаем путь к видео из URI (всё после "/video/")
+        String requestUri = org.springframework.web.util.UriUtils.decode(
+                org.springframework.web.context.request.RequestContextHolder
+                        .getRequestAttributes()
+                        .getAttribute("org.springframework.web.servlet.HandlerMapping.pathWithinHandlerMapping", 
+                                org.springframework.web.context.request.RequestAttributes.SCOPE_REQUEST)
+                        .toString(),
+                java.nio.charset.StandardCharsets.UTF_8);
+        
+        String title = requestUri.replaceFirst("^video/", "");
         log.info("Video request: title={}, range={}", title, range);
         return videoService.getVideo(title, range);
     }
