@@ -55,3 +55,16 @@ desktop.ini
 # Misc
 HELP.md
 .mvn/wrapper/maven-wrapper.jar
+
+# Test videos
+test_videos/
+*.mp4
+*.avi
+*.mkv
+*.webm
+*.mov
+*.flv
+*.wmv
+
+# Qwen settings
+.qwen/

@@ -34,7 +34,9 @@ function getFormatBadge(format, requiresTranscoding) {
 
 function navigateToFolder(folderPath, folderName) {
     pathStack.push({ path: currentPath, name: folderName });
+    // Используем относительный путь как есть - бэкенд ожидает именно его
     currentPath = folderPath;
+    console.log('Navigating to folder:', currentPath);
     renderPlaylist();
 }
 
@@ -49,20 +51,21 @@ function navigateUp() {
 function renderBreadcrumbs() {
     let html = '<div style="margin-bottom: 20px; padding: 10px; background-color: #f5f5f5; border-radius: 5px;">';
     html += `<a href="#" onclick="event.preventDefault(); resetNavigation(); renderPlaylist();" style="color: #0066cc; text-decoration: none;">🏠 Главная</a>`;
-    
-    let accumulatedPath = '';
+
+    // Строим хлебные крошки на основе pathStack
     pathStack.forEach((item, index) => {
         html += ` <span style="color: #666;">/</span> `;
-        if (index === pathStack.length - 1) {
-            html += `<span style="color: #333; font-weight: bold;">${item.name}</span>`;
-        } else {
-            accumulatedPath = accumulatedPath 
-                ? accumulatedPath + '/' + item.name 
-                : item.name;
+        // Для всех элементов кроме последнего создаём ссылки
+        if (index < pathStack.length - 1) {
+            // Собираем путь до этого элемента
+            let accumulatedPath = pathStack.slice(0, index + 1).map(item => item.name).join('/');
             html += `<a href="#" onclick="event.preventDefault(); navigateToFolder('${accumulatedPath}', '${item.name}');" style="color: #0066cc; text-decoration: none;">${item.name}</a>`;
+        } else {
+            // Последний элемент - просто имя
+            html += `<span style="color: #333; font-weight: bold;">${item.name}</span>`;
         }
     });
-    
+
     html += '</div>';
     return html;
 }

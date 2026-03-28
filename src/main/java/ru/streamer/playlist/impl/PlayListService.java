@@ -81,15 +81,20 @@ public class PlayListService implements PlayListInitialization {
                     .collect(Collectors.groupingBy(
                             file -> {
                                 Path relativePath = Paths.get(CURRENT_DIRECTORY).relativize(file.getParentFile().toPath());
-                                return relativePath.toString().replace("\\", "/");
+                                String pathStr = relativePath.toString().replace("\\", "/");
+                                // Для корневой директории возвращаем "." вместо пустой строки
+                                return pathStr.isEmpty() ? "." : pathStr;
                             },
                             Collectors.mapping(
                                     file -> {
                                         Path folderRelativePath = Paths.get(CURRENT_DIRECTORY).relativize(file.getParentFile().toPath());
                                         String folderPathStr = folderRelativePath.toString().replace("\\", "/");
+                                        String videoPath = folderPathStr.isEmpty() 
+                                                ? file.getName() 
+                                                : folderPathStr + "/" + file.getName();
                                         return VideoInfo.builder()
                                                 .title(file.getName())
-                                                .url("/streamer_page.html?video=" + encodeUrl(folderPathStr + "/" + file.getName()))
+                                                .url("/streamer_page.html?video=" + encodeUrl(videoPath))
                                                 .format(extractFileExtension(file.getName()).toUpperCase())
                                                 .requiresTranscoding("transcode".equals(fileExtensions.get(file.getName())))
                                                 .build();
@@ -121,14 +126,14 @@ public class PlayListService implements PlayListInitialization {
 
     private List<VideoFolder> buildFolderHierarchy(List<File> fileList) {
         Path rootPath = Paths.get(CURRENT_DIRECTORY);
-        
+
         // Группируем файлы по их родительским папкам
         Map<Path, List<File>> filesByFolder = fileList.stream()
                 .collect(Collectors.groupingBy(file -> file.getParentFile().toPath()));
-        
+
         // Собираем все уникальные пути папок
         Set<Path> allFolderPaths = new HashSet<>(filesByFolder.keySet());
-        
+
         // Добавляем все родительские папки для создания полной иерархии
         Set<Path> allPaths = new HashSet<>();
         for (Path folderPath : allFolderPaths) {
@@ -138,21 +143,32 @@ public class PlayListService implements PlayListInitialization {
                 current = current.getParent();
             }
         }
-        
+
+        // Если есть файлы в корневой директории, добавляем специальную папку "."
+        boolean hasRootFiles = filesByFolder.containsKey(rootPath);
+        if (hasRootFiles) {
+            allPaths.add(rootPath);
+        }
+
         // Создаём карту папок
         Map<Path, VideoFolder> folderMap = new LinkedHashMap<>();
-        
+
         for (Path folderPath : allPaths) {
             Path relativePath = rootPath.relativize(folderPath);
             String[] parts = relativePath.toString().replace("\\", "/").split("/");
-            
+
             Path currentPath = rootPath;
             VideoFolder parentFolder = null;
-            
+
             for (int i = 0; i < parts.length; i++) {
+                // Обработка корневой директории
+                if (parts.length == 1 && parts[0].isEmpty()) {
+                    continue; // Пропускаем пустую часть для корня
+                }
+                
                 currentPath = currentPath.resolve(parts[i]);
                 String relativePathStr = rootPath.relativize(currentPath).toString().replace("\\", "/");
-                
+
                 if (!folderMap.containsKey(currentPath)) {
                     boolean hasVideos = filesByFolder.containsKey(currentPath);
 
@@ -168,11 +184,11 @@ public class PlayListService implements PlayListInitialization {
                     }
                     folderMap.put(currentPath, folder);
                 }
-                
+
                 parentFolder = folderMap.get(currentPath);
             }
         }
-        
+
         // Получаем корневые папки (те, чей родитель - rootPath)
         List<VideoFolder> rootFolders = folderMap.entrySet().stream()
                 .filter(e -> e.getKey().getParent().equals(rootPath))
@@ -270,6 +286,10 @@ public class PlayListService implements PlayListInitialization {
 
     public List<VideoInfo> getVideosInFolder(String folderPath) {
         String decodedPath = decodeUrl(folderPath);
+        // Нормализуем путь: пустая строка, "/" или "." означают корневую директорию
+        if (decodedPath.isEmpty() || decodedPath.equals("/") || decodedPath.equals(".")) {
+            decodedPath = ".";
+        }
         return videosByFolderPath.getOrDefault(decodedPath, Collections.emptyList());
     }
 }

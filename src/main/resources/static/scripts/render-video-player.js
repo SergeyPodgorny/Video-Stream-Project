@@ -1,11 +1,23 @@
-async function getVideoInfo(videoTitle) {
+async function getVideoInfo(videoPath) {
     try {
-        const response = await fetch('/playlist');
+        // Извлекаем путь к папке из полного пути к видео
+        const lastSlashIndex = videoPath.lastIndexOf('/');
+        let folderPath = '.';
+        let videoFileName = videoPath;
+        
+        if (lastSlashIndex !== -1) {
+            folderPath = videoPath.substring(0, lastSlashIndex);
+            videoFileName = videoPath.substring(lastSlashIndex + 1);
+        }
+        
+        console.log('Fetching videos for folder:', folderPath);
+        
+        const response = await fetch(`/playlist/folder?path=${encodeURIComponent(folderPath)}`);
         if (!response.ok) {
             throw new Error(`Error fetching playlist: ${response.status}`);
         }
-        const playlist = await response.json();
-        return playlist.find(video => video.title === videoTitle);
+        const videos = await response.json();
+        return videos.find(video => video.title === videoFileName);
     } catch (error) {
         console.error('Error fetching video info:', error);
         return null;
