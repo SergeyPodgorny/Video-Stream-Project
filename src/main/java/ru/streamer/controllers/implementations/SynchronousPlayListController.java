@@ -2,6 +2,8 @@ package ru.streamer.controllers.implementations;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -23,14 +25,26 @@ public class SynchronousPlayListController {
     }
 
     @GetMapping(value = "/playlist", produces = "application/json")
-    public List<VideoFolder> getPlayList() {
-        return service.getVideoFolders();
+    public ResponseEntity<List<VideoFolder>> getPlayList() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(HttpHeaders.CACHE_CONTROL, "no-cache, no-store, must-revalidate");
+        headers.set(HttpHeaders.PRAGMA, "no-cache");
+        headers.set(HttpHeaders.EXPIRES, "0");
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(service.getVideoFolders());
     }
 
     @GetMapping(value = "/playlist/folder", produces = "application/json")
-    public List<VideoInfo> getVideosInFolder(@RequestParam String path) {
+    public ResponseEntity<List<VideoInfo>> getVideosInFolder(@RequestParam String path) {
         log.info("Getting videos in folder: {}", path);
-        return service.getVideosInFolder(path);
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(HttpHeaders.CACHE_CONTROL, "no-cache, no-store, must-revalidate");
+        headers.set(HttpHeaders.PRAGMA, "no-cache");
+        headers.set(HttpHeaders.EXPIRES, "0");
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(service.getVideosInFolder(path));
     }
 
 }

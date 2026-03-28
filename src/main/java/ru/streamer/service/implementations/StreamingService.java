@@ -2,13 +2,18 @@ package ru.streamer.service.implementations;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
+import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.core.io.buffer.DefaultDataBufferFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import ru.streamer.playlist.impl.PlayListService;
 import ru.streamer.service.FfmpegService;
 import ru.streamer.service.VideoProvider;
@@ -16,14 +21,9 @@ import ru.streamer.service.VideoProvider;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
-import org.springframework.core.io.InputStreamResource;
 
 @Service
 public class StreamingService implements VideoProvider {
@@ -31,36 +31,80 @@ public class StreamingService implements VideoProvider {
     private static final Logger log = LoggerFactory.getLogger(StreamingService.class);
     private final PlayListService playListService;
     private final FfmpegService ffmpegService;
-    private final Executor virtualThreadExecutor;
 
-    public StreamingService(PlayListService playListService, FfmpegService ffmpegService, Executor virtualThreadExecutor) {
+    public StreamingService(PlayListService playListService, FfmpegService ffmpegService) {
         this.playListService = playListService;
         this.ffmpegService = ffmpegService;
-        this.virtualThreadExecutor = virtualThreadExecutor;
     }
 
     @Override
     public Mono<ResponseEntity<Resource>> getVideo(String title, String rangeHeader) {
-        log.info("Requested video: {}, range: {}", title, rangeHeader);
+        // Декодируем URL (пути приходят в закодированном виде)
+        String decodedTitle = java.net.URLDecoder.decode(title, java.nio.charset.StandardCharsets.UTF_8);
+        log.info("Requested video: {}, range: {}", decodedTitle, rangeHeader);
 
-        if (!playListService.existsByTitle(title)) {
-            log.warn("Video not found: {}", title);
+        if (!playListService.existsByTitle(decodedTitle)) {
+            log.warn("Video not found: {}", decodedTitle);
             return Mono.just(ResponseEntity.status(HttpStatus.NOT_FOUND).build());
         }
 
-        boolean needsTranscoding = playListService.requiresTranscoding(title);
+        boolean needsTranscoding = playListService.requiresTranscoding(decodedTitle);
 
         if (needsTranscoding) {
             if (!ffmpegService.isAvailable()) {
-                log.error("FFmpeg not available for transcoding: {}", title);
+                log.error("FFmpeg not available for transcoding: {}", decodedTitle);
                 return Mono.just(ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                         .body(new org.springframework.core.io.ByteArrayResource(
                                 "FFmpeg not available. Cannot transcode this video.".getBytes())));
             }
-            return streamTranscodedVideo(title, rangeHeader);
+            // Для транскодированного видео возвращаем специальный маркер
+            return Mono.just(ResponseEntity.status(HttpStatus.OK)
+                    .header("X-Transcode-Needed", "true")
+                    .header("X-Video-Path", title)
+                    .build());
         } else {
-            return streamNativeVideo(title, rangeHeader);
+            return streamNativeVideo(decodedTitle, rangeHeader);
         }
+    }
+
+    @Override
+    public Flux<DataBuffer> getTranscodedVideo(String title) {
+        String decodedTitle = java.net.URLDecoder.decode(title, java.nio.charset.StandardCharsets.UTF_8);
+
+        return Flux.<DataBuffer>create(emitter -> {
+            try {
+                String filePath = playListService.getVideoPath(decodedTitle)
+                        .orElseThrow(() -> new IllegalArgumentException("Video not found: " + decodedTitle));
+
+                log.info("Starting transcoding for: {}", decodedTitle);
+
+                ProcessBuilder processBuilder = ffmpegService.createTranscodingProcessBuilder(filePath);
+                Process process = processBuilder.start();
+
+                // Читаем вывод ffmpeg в потоке
+                try (InputStream inputStream = process.getInputStream()) {
+                    byte[] buffer = new byte[8192];
+                    int bytesRead;
+                    while ((bytesRead = inputStream.read(buffer)) != -1) {
+                        if (emitter.isCancelled()) {
+                            process.destroy();
+                            return;
+                        }
+                        // Создаём DataBuffer из байтов
+                        DataBuffer dataBuffer = new DefaultDataBufferFactory().allocateBuffer(bytesRead);
+                        dataBuffer.write(buffer, 0, bytesRead);
+                        emitter.next(dataBuffer);
+                    }
+                }
+
+                process.waitFor();
+                emitter.complete();
+            } catch (Exception e) {
+                log.error("Error during transcoding: {}", e.getMessage(), e);
+                emitter.error(e);
+            }
+        }, reactor.core.publisher.FluxSink.OverflowStrategy.BUFFER)
+        .subscribeOn(Schedulers.boundedElastic());
     }
 
     private Mono<ResponseEntity<Resource>> streamNativeVideo(String title, String rangeHeader) {
@@ -69,7 +113,7 @@ public class StreamingService implements VideoProvider {
                     .orElseThrow(() -> new IllegalArgumentException("Video not found: " + title));
 
             Path path = Paths.get(filePath);
-            Resource resource = new org.springframework.core.io.FileSystemResource(path);
+            Resource resource = new FileSystemResource(path);
             File file = resource.getFile();
             long fileSize = file.length();
 
@@ -88,59 +132,6 @@ public class StreamingService implements VideoProvider {
                     log.error("Error streaming native video: {}", e.getMessage());
                     return Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build());
                 });
-    }
-
-    private Mono<ResponseEntity<Resource>> streamTranscodedVideo(String title, String rangeHeader) {
-        return Mono.fromFuture(() -> CompletableFuture.supplyAsync(() -> {
-            try {
-                String filePath = playListService.getVideoPath(title)
-                        .orElseThrow(() -> new IllegalArgumentException("Video not found: " + title));
-
-                log.info("Starting transcoding for: {}", title);
-
-                PipedInputStream pipedInputStream = new PipedInputStream(1024 * 1024);
-                PipedOutputStream pipedOutputStream = new PipedOutputStream(pipedInputStream);
-
-                ProcessBuilder processBuilder = ffmpegService.createTranscodingProcessBuilder(filePath);
-                Process process = processBuilder.start();
-
-                CompletableFuture.runAsync(() -> {
-                    try (InputStream ffmpegOutput = process.getInputStream();
-                         pipedOutputStream) {
-                        byte[] buffer = new byte[8192];
-                        int bytesRead;
-                        while ((bytesRead = ffmpegOutput.read(buffer)) != -1) {
-                            pipedOutputStream.write(buffer, 0, bytesRead);
-                        }
-                    } catch (IOException e) {
-                        log.error("Error copying transcoded data: {}", e.getMessage());
-                    }
-                }, virtualThreadExecutor);
-
-                Resource streamingResource = new InputStreamResource(pipedInputStream) {
-                    @Override
-                    public long contentLength() {
-                        return -1;
-                    }
-
-                    @Override
-                    public String getFilename() {
-                        return title;
-                    }
-                };
-
-                log.info("Transcoding stream started for: {}", title);
-                return ResponseEntity.ok()
-                        .contentType(MediaType.valueOf("video/mp4"))
-                        .header(HttpHeaders.TRANSFER_ENCODING, "chunked")
-                        .header("X-Transcoded", "true")
-                        .body(streamingResource);
-
-            } catch (Exception e) {
-                log.error("Error starting transcoding: {}", e.getMessage());
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-            }
-        }, virtualThreadExecutor));
     }
 
     private ResponseEntity<Resource> handleRangeRequest(String rangeHeader, Resource resource, long fileSize, String title) {

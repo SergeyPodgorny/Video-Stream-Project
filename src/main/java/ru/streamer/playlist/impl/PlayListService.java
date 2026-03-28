@@ -20,7 +20,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static ru.streamer.constants.PathConstants.CURRENT_DIRECTORY;
+import static ru.streamer.constants.PathConstants.getCurrentDirectory;
 
 @Component
 public class PlayListService implements PlayListInitialization {
@@ -37,8 +37,8 @@ public class PlayListService implements PlayListInitialization {
     @Override
     @Benchmarked
     public void init() {
-        log.info("Current home directory: {}", System.getProperty("user.dir"));
-        try (Stream<Path> stream = Files.walk(Paths.get(CURRENT_DIRECTORY), Integer.MAX_VALUE)) {
+        log.info("Current home directory: {}", getCurrentDirectory());
+        try (Stream<Path> stream = Files.walk(Paths.get(getCurrentDirectory()), Integer.MAX_VALUE)) {
             var fileList = stream.filter(file -> !Files.isDirectory(file))
                     .filter(FileExtensionPredicates::isSupportedVideoFile)
                     .map(Path::toFile)
@@ -71,8 +71,11 @@ public class PlayListService implements PlayListInitialization {
             playListByRelativePath = fileList.stream()
                     .collect(Collectors.toMap(
                             file -> {
-                                String folderName = file.getParentFile().getName();
-                                return folderName + "/" + file.getName();
+                                Path folderRelativePath = Paths.get(getCurrentDirectory()).relativize(file.getParentFile().toPath());
+                                String folderPathStr = folderRelativePath.toString().replace("\\", "/");
+                                return folderPathStr.isEmpty()
+                                        ? file.getName()
+                                        : folderPathStr + "/" + file.getName();
                             },
                             File::getAbsolutePath,
                             (s1, s2) -> s1));
@@ -80,17 +83,17 @@ public class PlayListService implements PlayListInitialization {
             videosByFolderPath = fileList.stream()
                     .collect(Collectors.groupingBy(
                             file -> {
-                                Path relativePath = Paths.get(CURRENT_DIRECTORY).relativize(file.getParentFile().toPath());
+                                Path relativePath = Paths.get(getCurrentDirectory()).relativize(file.getParentFile().toPath());
                                 String pathStr = relativePath.toString().replace("\\", "/");
                                 // Для корневой директории возвращаем "." вместо пустой строки
                                 return pathStr.isEmpty() ? "." : pathStr;
                             },
                             Collectors.mapping(
                                     file -> {
-                                        Path folderRelativePath = Paths.get(CURRENT_DIRECTORY).relativize(file.getParentFile().toPath());
+                                        Path folderRelativePath = Paths.get(getCurrentDirectory()).relativize(file.getParentFile().toPath());
                                         String folderPathStr = folderRelativePath.toString().replace("\\", "/");
-                                        String videoPath = folderPathStr.isEmpty() 
-                                                ? file.getName() 
+                                        String videoPath = folderPathStr.isEmpty()
+                                                ? file.getName()
                                                 : folderPathStr + "/" + file.getName();
                                         return VideoInfo.builder()
                                                 .title(file.getName())
@@ -125,7 +128,7 @@ public class PlayListService implements PlayListInitialization {
     }
 
     private List<VideoFolder> buildFolderHierarchy(List<File> fileList) {
-        Path rootPath = Paths.get(CURRENT_DIRECTORY);
+        Path rootPath = Paths.get(getCurrentDirectory());
 
         // Группируем файлы по их родительским папкам
         Map<Path, List<File>> filesByFolder = fileList.stream()
@@ -254,9 +257,15 @@ public class PlayListService implements PlayListInitialization {
 
     public boolean existsByTitle(String title) {
         String decodedTitle = decodeUrl(title);
-        return playListByRelativePath.containsKey(decodedTitle) 
+        boolean exists = playListByRelativePath.containsKey(decodedTitle)
                 || playList.containsKey(title)
                 || playList.containsKey(decodedTitle);
+        
+        if (!exists) {
+            log.warn("Video not found. Requested: '{}'. Available keys in playListByRelativePath: {}", 
+                    decodedTitle, playListByRelativePath.keySet());
+        }
+        return exists;
     }
 
     public boolean requiresTranscoding(String title) {

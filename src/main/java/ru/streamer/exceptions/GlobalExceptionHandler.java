@@ -16,6 +16,15 @@ public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    @ExceptionHandler(org.springframework.web.reactive.resource.NoResourceFoundException.class)
+    public void handleNoResourceFoundException(org.springframework.web.reactive.resource.NoResourceFoundException ex) {
+        // Игнорируем ошибки для статических ресурсов (например, Chrome DevTools)
+        String message = ex.getMessage();
+        if (message == null || !message.contains(".well-known/")) {
+            log.debug("Static resource not found: {}", message);
+        }
+    }
+
     @ExceptionHandler(ReadFileSystemException.class)
     public ResponseEntity<Map<String, Object>> handleReadFileSystemException(ReadFileSystemException ex) {
         log.error("File system read error", ex);
