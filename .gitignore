@@ -68,3 +68,7 @@ test_videos/
 
 # Qwen settings
 .qwen/
+
+# AI
+*.opencode
+*openspec
